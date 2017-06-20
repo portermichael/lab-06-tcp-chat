@@ -52,7 +52,7 @@ server.on('connection', (socket) => {
       if (contact === '' || clientPool.indexOf(contact) === -1) {
         console.log('1contact', contact);
         socket.write(`Slide into dms better ${client.nick} "/dm contact msg"\n`);
-        return;
+        // return;
       }
       let content = splitData.slice(2) || ` is typing...`;
       console.log('1content', content);
