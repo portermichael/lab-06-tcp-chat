@@ -7,13 +7,23 @@ const Client = require('./lib/client.js');
 let clientPool = [];
 
 server.on('connection', (socket) => {
-  let client = new Client();
-  client.nickname = `guest_${Math.floor(Math.random() * 1000)}`;
+  let client = new Client(socket);
+  client.nick = `guest_${Math.floor(Math.random() * 1000)}`;
+
   clientPool = [...clientPool, socket];
+
+  clientPool.forEach((item) => {
+    item.write(`Welcome ${client.nick}\n`);
+  });
+
   let disconnect = (err) => {
+    clientPool.forEach((item) => {
+      item.write(`Bye ${client.nick}\n`);
+    });
     if (err) return console.error(err);
     clientPool = clientPool.filter((item) => item !== socket);
   };
+
   socket.on('error', disconnect);
   socket.on('close', disconnect);
   socket.on('data', (buffer) => {
@@ -21,47 +31,68 @@ server.on('connection', (socket) => {
     console.log(data);
 
     if (data.startsWith('/nick')) {
-      socket.old = socket.nick;
-      socket.nick = data.split('/nick ')[1] || socket.nick;
-      socket.nick = socket.nick.trim();
-      socket.write(`${socket.old} is now ${socket.nick}`);
+      let oldNick = client.nick;
+      client.nick = data.split(' ')[1] || client.nick;
+      client.nick = client.nick.trim();
+      if (client.nick === oldNick || client.nick == '') {
+        client.nick = oldNick;
+        client.socket.write(`${client.nick} Change your nick by typing "/nick newNick"\n`);
+        return;
+      }
+      clientPool.forEach((item) => {
+        item.write(`${oldNick} is now ${client.nick}\n`);
+      });
       return;
     }
 
     if (data.startsWith('/dm')) {
       let splitData = data.split(' ') || '';
+      console.log(splitData, 'spltdata');
       let contact = splitData[1] || '';
       if (contact === '' || clientPool.indexOf(contact) === -1) {
-        socket.write(`Slide into dms better ${socket.nick}`);
-        return;
+        console.log('1contact', contact);
+        socket.write(`Slide into dms better ${client.nick} "/dm contact msg"\n`);
+        // return;
       }
-      let content = splitData[2] || ` is typing...`;
-      socket.write(`${socket.nick}: ${content}`);
+      let content = splitData.slice(2) || ` is typing...`;
+      console.log('1content', content);
+      clientPool.forEach((item) => {
+        if (contact == item.nick)
+          item.write(`${client.nick}: ${content}`);
+      });
+      return;
     }
 
     if (data.startsWith('/troll')) {
       let funnyTroll = data.split(' ') || '';
       let timesTroll = funnyTroll[1] || '';
-      let trollMsg = funnyTroll[2] || '';
+      let trollMsg = funnyTroll.slice(2) || '';
       if (timesTroll === '' || typeof timesTroll !== 'number' || trollMsg === '' || timesTroll <= 0) {
-        socket.write(`Nice try ${socket.nick}
-                      Nice try ${socket.nick}
-                      Nice try ${socket.nick}
-                      `);
-        for (let i = 0; i < timesTroll; i++) {
-          socket.write(`${socket.nick}: ${trollMsg}`);
-        }
+        socket.write(`
+                      Nice try ${client.nick}
+                      Nice try ${client.nick}
+                      "/troll number msg"
+                      Nice try ${client.nick}
+                      Nice try ${client.nick}
+                      \n`);
+        // return;
       }
+      for (let i = 0; i < timesTroll; i++) {
+        clientPool.forEach((item) => {
+          item.write(`${client.nick}: ${trollMsg}`);
+        });
+      }
+      return;
     }
 
-    if (data === '/quit') {
-      socket.write(`Bye ${socket.nick}`);
-      socket.on('close', disconnect);
+    if (data == '/quit\r\n') {
+      disconnect();
+      client.socket.end();
       return;
     }
 
     clientPool.forEach((item) => {
-      item.write(`${socket.nick}: ${data}`);
+      item.write(`${client.nick}: ${data}`);
     });
   });
 });
