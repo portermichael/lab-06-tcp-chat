@@ -8,20 +8,19 @@ let clientPool = [];
 
 server.on('connection', (socket) => {
   let client = new Client(socket);
-  client.nick = `guest_${Math.floor(Math.random() * 1000)}`;
 
-  clientPool = [...clientPool, socket];
+  clientPool = [...clientPool, client];
 
-  clientPool.forEach((item) => {
-    item.write(`Welcome ${client.nick}\n`);
+  clientPool.forEach(item => {
+    item.socket.write(`Welcome ${client.nick}\n`);
   });
 
   let disconnect = (err) => {
-    clientPool.forEach((item) => {
-      item.write(`Bye ${client.nick}\n`);
-    });
     if (err) return console.error(err);
-    clientPool = clientPool.filter((item) => item !== socket);
+    clientPool = clientPool.filter((item) => item.socket !== client.socket);
+    clientPool.forEach((item) => {
+      item.socket.write(`Bye ${client.nick}\n`);
+    });
   };
 
   socket.on('error', disconnect);
@@ -34,31 +33,28 @@ server.on('connection', (socket) => {
       let oldNick = client.nick;
       client.nick = data.split(' ')[1] || client.nick;
       client.nick = client.nick.trim();
-      if (client.nick === oldNick || client.nick == '') {
+      if (client.nick === oldNick || client.nick === '') {
         client.nick = oldNick;
-        client.socket.write(`${client.nick} Change your nick by typing "/nick newNick"\n`);
+        socket.write(`${client.nick} Change your nick by typing "/nick newNick"\n`);
         return;
       }
       clientPool.forEach((item) => {
-        item.write(`${oldNick} is now ${client.nick}\n`);
+        item.socket.write(`${oldNick} is now ${client.nick}\n`);
       });
       return;
     }
 
     if (data.startsWith('/dm')) {
       let splitData = data.split(' ') || '';
-      console.log(splitData, 'spltdata');
-      let contact = splitData[1] || '';
-      if (contact === '' || clientPool.indexOf(contact) === -1) {
-        console.log('1contact', contact);
-        socket.write(`Slide into dms better ${client.nick} "/dm contact msg"\n`);
-        // return;
-      }
-      let content = splitData.slice(2) || ` is typing...`;
-      console.log('1content', content);
+      let contact = splitData[1];
+      // if (contact === '' || clientPool.indexOf(contact) === -1) {
+      //   socket.write(`Slide into dms better ${client.nick} "/dm contact msg"\n`);
+      //   return;
+      // }
+      let content = splitData.slice(2).join(' ');
       clientPool.forEach((item) => {
         if (contact == item.nick)
-          item.write(`${client.nick}: ${content}`);
+          item.socket.write(`${item.nick}: ${content}`);
       });
       return;
     }
@@ -66,33 +62,32 @@ server.on('connection', (socket) => {
     if (data.startsWith('/troll')) {
       let funnyTroll = data.split(' ') || '';
       let timesTroll = funnyTroll[1] || '';
-      let trollMsg = funnyTroll.slice(2) || '';
-      if (timesTroll === '' || typeof timesTroll !== 'number' || trollMsg === '' || timesTroll <= 0) {
-        socket.write(`
-                      Nice try ${client.nick}
-                      Nice try ${client.nick}
-                      "/troll number msg"
-                      Nice try ${client.nick}
-                      Nice try ${client.nick}
-                      \n`);
-        // return;
-      }
+      let trollMsg = funnyTroll.slice(2).join(' ') || '';
+      // if (typeof timesTroll !== 'number' || trollMsg.length === 0 || timesTroll <= 0) {
+      //   socket.write(`
+      //                 Nice try ${client.nick}
+      //                 Nice try ${client.nick}
+      //                 "/troll number msg"
+      //                 Nice try ${client.nick}
+      //                 Nice try ${client.nick}
+      //                 \n`);
+      //   return;
+      // }
       for (let i = 0; i < timesTroll; i++) {
         clientPool.forEach((item) => {
-          item.write(`${client.nick}: ${trollMsg}`);
+          item.socket.write(`${client.nick}: ${trollMsg}`);
         });
       }
       return;
     }
 
     if (data == '/quit\r\n') {
-      disconnect();
-      client.socket.end();
+      socket.end();
       return;
     }
 
     clientPool.forEach((item) => {
-      item.write(`${client.nick}: ${data}`);
+      item.socket.write(`${client.nick}: ${data}`);
     });
   });
 });
