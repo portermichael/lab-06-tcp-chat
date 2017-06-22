@@ -47,14 +47,14 @@ server.on('connection', (socket) => {
     if (data.startsWith('/dm')) {
       let splitData = data.split(' ') || '';
       let contact = splitData[1];
-      // if (contact === '' || clientPool.indexOf(contact) === -1) {
-      //   socket.write(`Slide into dms better ${client.nick} "/dm contact msg"\n`);
-      //   return;
-      // }
       let content = splitData.slice(2).join(' ');
+      if (contact === '' || content === '') {
+        socket.write(`Slide into dms better ${client.nick} "/dm contact msg"\n`);
+        return;
+      }
       clientPool.forEach((item) => {
         if (contact == item.nick)
-          item.socket.write(`${item.nick}: ${content}`);
+          item.socket.write(`${client.nick}: ${content}`);
       });
       return;
     }
@@ -63,16 +63,6 @@ server.on('connection', (socket) => {
       let funnyTroll = data.split(' ') || '';
       let timesTroll = funnyTroll[1] || '';
       let trollMsg = funnyTroll.slice(2).join(' ') || '';
-      // if (typeof timesTroll !== 'number' || trollMsg.length === 0 || timesTroll <= 0) {
-      //   socket.write(`
-      //                 Nice try ${client.nick}
-      //                 Nice try ${client.nick}
-      //                 "/troll number msg"
-      //                 Nice try ${client.nick}
-      //                 Nice try ${client.nick}
-      //                 \n`);
-      //   return;
-      // }
       for (let i = 0; i < timesTroll; i++) {
         clientPool.forEach((item) => {
           item.socket.write(`${client.nick}: ${trollMsg}`);
